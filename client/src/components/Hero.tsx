@@ -1,4 +1,5 @@
 import { GraduationCap, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Hero = () => {
   return (
@@ -26,13 +27,13 @@ const Hero = () => {
           
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="btn-primary flex items-center gap-2 group">
+            <Link to="/#form" className="btn-primary flex items-center gap-2 group">
               Comienza Tu Viaje
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button className="btn-secondary">
-              Saber Más
-            </button>
+            </Link>
+            <Link to="/courses" className="btn-secondary">
+              Ver Cursos
+            </Link>
           </div>
           
           {/* Trust Indicators */}

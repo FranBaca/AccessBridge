@@ -1,32 +1,15 @@
-import Header from './components/Header';
-import Hero from './components/Hero';
-import InterestForm from './components/InterestForm';
-import Benefits from './components/Benefits';
-import Footer from './components/Footer';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import CoursesPage from './pages/CoursesPage';
 
 function App() {
   return (
-    <div className="min-h-screen">
-      <Header />
-      
-      <main>
-        <section id="home">
-          <Hero />
-        </section>
-        
-        <section id="form">
-          <InterestForm />
-        </section>
-        
-        <section id="benefits">
-          <Benefits />
-        </section>
-      </main>
-      
-      <section id="contact">
-        <Footer />
-      </section>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/courses" element={<CoursesPage />} />
+      </Routes>
+    </Router>
   );
 }
 

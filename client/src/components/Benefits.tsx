@@ -1,4 +1,5 @@
 import { Clock, DollarSign, Globe, Award, Users, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const benefits = [
   {
@@ -77,9 +78,9 @@ const Benefits = () => {
             <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
               Únete a miles de estudiantes que ya han dado el primer paso hacia una mejor carrera con entrenamiento gratuito en habilidades digitales.
             </p>
-            <button className="bg-white text-blue-600 font-semibold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-              Comienza Hoy
-            </button>
+            <Link to="/courses" className="bg-white text-blue-600 font-semibold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors duration-200 inline-block">
+              Ver Cursos Disponibles
+            </Link>
           </div>
         </div>
       </div>

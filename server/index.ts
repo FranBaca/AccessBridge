@@ -174,6 +174,94 @@ app.get('/api/admin/submissions', (req: Request, res: Response) => {
   }
 });
 
+// API endpoint to get courses (for approved users)
+app.get('/api/courses', (req: Request, res: Response) => {
+  try {
+    // For now, return static course data
+    // In the future, this could check user approval status
+    const courses = [
+      {
+        id: '1',
+        title: 'Google IT Support Professional Certificate',
+        description: 'Aprende los fundamentos de soporte técnico de IT. Incluye troubleshooting, redes, sistemas operativos, y seguridad.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'IT Support',
+        url: 'https://www.coursera.org/professional-certificates/google-it-support',
+        isBlocked: true
+      },
+      {
+        id: '2',
+        title: 'Microsoft Azure Fundamentals (AZ-900)',
+        description: 'Obtén una comprensión sólida de los conceptos básicos de la nube y los servicios de Microsoft Azure.',
+        provider: 'Microsoft',
+        duration: '3 meses',
+        level: 'Beginner',
+        category: 'Cloud Computing',
+        url: 'https://learn.microsoft.com/en-us/certifications/azure-fundamentals/',
+        isBlocked: true
+      },
+      {
+        id: '3',
+        title: 'Google Data Analytics Professional Certificate',
+        description: 'Desarrolla habilidades en análisis de datos, visualización y toma de decisiones basadas en datos.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'Data Analytics',
+        url: 'https://www.coursera.org/professional-certificates/google-data-analytics',
+        isBlocked: true
+      },
+      {
+        id: '4',
+        title: 'Microsoft 365 Fundamentals (MS-900)',
+        description: 'Aprende sobre los servicios de Microsoft 365 y las opciones de licenciamiento disponibles.',
+        provider: 'Microsoft',
+        duration: '2 meses',
+        level: 'Beginner',
+        category: 'Productivity',
+        url: 'https://learn.microsoft.com/en-us/certifications/microsoft-365-fundamentals/',
+        isBlocked: true
+      },
+      {
+        id: '5',
+        title: 'Google Project Management Professional Certificate',
+        description: 'Adquiere habilidades esenciales de gestión de proyectos y metodologías ágiles.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'Project Management',
+        url: 'https://www.coursera.org/professional-certificates/google-project-management',
+        isBlocked: true
+      },
+      {
+        id: '6',
+        title: 'Microsoft Power Platform Fundamentals (PL-900)',
+        description: 'Explora las capacidades de Microsoft Power Platform para automatización y desarrollo de aplicaciones.',
+        provider: 'Microsoft',
+        duration: '3 meses',
+        level: 'Beginner',
+        category: 'Low-Code Development',
+        url: 'https://learn.microsoft.com/en-us/certifications/power-platform-fundamentals/',
+        isBlocked: true
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: courses,
+      count: courses.length
+    });
+  } catch (error) {
+    console.error('Error fetching courses:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
