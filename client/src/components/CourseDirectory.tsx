@@ -1,4 +1,5 @@
-import { BookOpen, ExternalLink, Lock, Clock, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BookOpen, ExternalLink, Lock, Clock, Users, CheckCircle } from 'lucide-react';
 
 interface Course {
   id: string;
@@ -6,92 +7,64 @@ interface Course {
   description: string;
   provider: 'Google' | 'Microsoft';
   duration: string;
-  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  level: string;
   category: string;
   url: string;
   isBlocked: boolean;
 }
 
-const courses: Course[] = [
-  {
-    id: '1',
-    title: 'Google IT Support Professional Certificate',
-    description: 'Aprende los fundamentos de soporte técnico de IT. Incluye troubleshooting, redes, sistemas operativos, y seguridad.',
-    provider: 'Google',
-    duration: '6 meses',
-    level: 'Beginner',
-    category: 'IT Support',
-    url: 'https://www.coursera.org/professional-certificates/google-it-support',
-    isBlocked: true
-  },
-  {
-    id: '2',
-    title: 'Microsoft Azure Fundamentals (AZ-900)',
-    description: 'Obtén una comprensión sólida de los conceptos básicos de la nube y los servicios de Microsoft Azure.',
-    provider: 'Microsoft',
-    duration: '3 meses',
-    level: 'Beginner',
-    category: 'Cloud Computing',
-    url: 'https://learn.microsoft.com/en-us/certifications/azure-fundamentals/',
-    isBlocked: true
-  },
-  {
-    id: '3',
-    title: 'Google Data Analytics Professional Certificate',
-    description: 'Desarrolla habilidades en análisis de datos, visualización y toma de decisiones basadas en datos.',
-    provider: 'Google',
-    duration: '6 meses',
-    level: 'Beginner',
-    category: 'Data Analytics',
-    url: 'https://www.coursera.org/professional-certificates/google-data-analytics',
-    isBlocked: true
-  },
-  {
-    id: '4',
-    title: 'Microsoft 365 Fundamentals (MS-900)',
-    description: 'Aprende sobre los servicios de Microsoft 365 y las opciones de licenciamiento disponibles.',
-    provider: 'Microsoft',
-    duration: '2 meses',
-    level: 'Beginner',
-    category: 'Productivity',
-    url: 'https://learn.microsoft.com/en-us/certifications/microsoft-365-fundamentals/',
-    isBlocked: true
-  },
-  {
-    id: '5',
-    title: 'Google Project Management Professional Certificate',
-    description: 'Adquiere habilidades esenciales de gestión de proyectos y metodologías ágiles.',
-    provider: 'Google',
-    duration: '6 meses',
-    level: 'Beginner',
-    category: 'Project Management',
-    url: 'https://www.coursera.org/professional-certificates/google-project-management',
-    isBlocked: true
-  },
-  {
-    id: '6',
-    title: 'Microsoft Power Platform Fundamentals (PL-900)',
-    description: 'Explora las capacidades de Microsoft Power Platform para automatización y desarrollo de aplicaciones.',
-    provider: 'Microsoft',
-    duration: '3 meses',
-    level: 'Beginner',
-    category: 'Low-Code Development',
-    url: 'https://learn.microsoft.com/en-us/certifications/power-platform-fundamentals/',
-    isBlocked: true
-  }
-];
+interface CourseResponse {
+  success: boolean;
+  data: Course[];
+  count: number;
+  userInterest?: string;
+  unlockedCourses?: string[];
+}
 
 const CourseDirectory = () => {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userInterest, setUserInterest] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('/api/courses', {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('No se pudo cargar los cursos');
+        }
+        
+        const data: CourseResponse = await response.json();
+        setCourses(data.data);
+        setUserInterest(data.userInterest || null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
   const handleCourseClick = (course: Course) => {
     if (course.isBlocked) {
-      alert('Acceso bloqueado. Tu solicitud está siendo revisada. Te notificaremos cuando tengas acceso.');
+      alert('Este curso no está disponible para tu área de interés. Contacta con el administrador para solicitar acceso.');
     } else {
       window.open(course.url, '_blank');
     }
   };
 
   const getProviderColor = (provider: string) => {
-    return provider === 'Google' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800';
+    switch (provider) {
+      case 'Google': return 'bg-red-100 text-red-800';
+      case 'Microsoft': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const getLevelColor = (level: string) => {
@@ -102,6 +75,27 @@ const CourseDirectory = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando cursos...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="max-w-7xl mx-auto text-center">
+          <p className="text-red-600">Error: {error}</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 via-white to-blue-50">
@@ -118,10 +112,23 @@ const CourseDirectory = () => {
             Catálogo de Cursos
           </h2>
           
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
             Explora nuestra colección de cursos certificados de Google y Microsoft. 
             Todos los cursos son gratuitos y están diseñados para principiantes.
           </p>
+
+          {userInterest && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-2xl mx-auto">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span className="font-semibold text-green-800">Tu área de interés:</span>
+              </div>
+              <p className="text-green-700 capitalize">{userInterest.replace('-', ' ')}</p>
+              <p className="text-sm text-green-600 mt-1">
+                Los cursos relacionados con tu interés están desbloqueados para ti.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Course Grid */}
@@ -169,14 +176,14 @@ const CourseDirectory = () => {
                   className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
                     course.isBlocked
                       ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg'
+                      : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg'
                   }`}
                   disabled={course.isBlocked}
                 >
                   {course.isBlocked ? (
                     <>
                       <Lock className="w-5 h-5" />
-                      Acceso Bloqueado
+                      No Disponible
                     </>
                   ) : (
                     <>
@@ -188,7 +195,7 @@ const CourseDirectory = () => {
                 
                 {course.isBlocked && (
                   <p className="text-xs text-gray-500 text-center mt-2">
-                    Tu solicitud está siendo revisada
+                    No disponible para tu área de interés
                   </p>
                 )}
               </div>
@@ -219,8 +226,14 @@ const CourseDirectory = () => {
                 <div className="bg-blue-100 p-3 rounded-full mb-3">
                   <span className="text-blue-600 font-bold">3</span>
                 </div>
-                <p className="text-gray-700">Recibe acceso completo a todos los cursos</p>
+                <p className="text-gray-700">Accede a cursos relacionados con tu interés</p>
               </div>
+            </div>
+            <div className="mt-6 p-4 bg-white rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Nota:</strong> Los cursos disponibles se basan en tu área de interés seleccionada. 
+                Si necesitas acceso a otros cursos, contacta con el administrador.
+              </p>
             </div>
           </div>
         </div>

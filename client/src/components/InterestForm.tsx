@@ -162,13 +162,9 @@ const InterestForm = () => {
               className={`form-input ${errors.interest ? 'border-red-500 focus:ring-red-500' : ''}`}
             >
               <option value="">Selecciona un área de interés</option>
-              <option value="data-analytics">Análisis de Datos</option>
-              <option value="digital-marketing">Marketing Digital</option>
-              <option value="project-management">Gestión de Proyectos</option>
-              <option value="it-support">Soporte IT</option>
-              <option value="web-development">Desarrollo Web</option>
-              <option value="cybersecurity">Ciberseguridad</option>
-              <option value="cloud-computing">Computación en la Nube</option>
+              <option value="marketing-digital">Marketing Digital</option>
+              <option value="Ciberseguridad">Ciberseguridad</option>
+              <option value="Productividad-google">Herramientas de productividad</option>
               <option value="other">Otro</option>
             </select>
             {errors.interest && (

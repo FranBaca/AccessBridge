@@ -1,9 +1,11 @@
-import express, { Application, Request, Response, RequestHandler } from 'express';
+import express, { Application, Request, Response, RequestHandler, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables
 dotenv.config();
@@ -25,6 +27,12 @@ if (!fs.existsSync(SUBMISSIONS_FILE)) {
   fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify([], null, 2));
 }
 
+// JWT secret (should be in .env)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// In-memory session storage (could be moved to database later)
+const sessions = new Map<string, Session>();
+
 // Types
 interface UserSubmission {
   id: string;
@@ -36,10 +44,36 @@ interface UserSubmission {
   submittedAt: string;
 }
 
+// Authentication interfaces
+interface Session {
+  sessionId: string;
+  userId: string;
+  email: string;
+  approvedAt: string;
+  expiresAt: string;
+}
+
+interface MagicLinkToken {
+  userId: string;
+  email: string;
+  type: 'magic_link';
+  expiresAt: string;
+}
+
+// Extend Request interface to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: Session;
+    }
+  }
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Helper function to read submissions
 const readSubmissions = (): UserSubmission[] => {
@@ -60,6 +94,57 @@ const writeSubmissions = (submissions: UserSubmission[]): void => {
     console.error('Error writing submissions file:', error);
     throw error;
   }
+};
+
+// Authentication helper functions
+const generateMagicLinkToken = (userId: string, email: string): string => {
+  const payload: MagicLinkToken = {
+    userId,
+    email,
+    type: 'magic_link',
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+};
+
+const verifyMagicLinkToken = (token: string): MagicLinkToken | null => {
+  try {
+    return jwt.verify(token, JWT_SECRET) as MagicLinkToken;
+  } catch (error) {
+    return null;
+  }
+};
+
+const createSession = (userId: string, email: string): string => {
+  const sessionId = uuidv4();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  
+  sessions.set(sessionId, {
+    sessionId,
+    userId,
+    email,
+    approvedAt: new Date().toISOString(),
+    expiresAt: expiresAt.toISOString()
+  });
+  
+  return sessionId;
+};
+
+// Authentication middleware
+const authenticateSession = (req: Request, res: Response, next: NextFunction) => {
+  const sessionId = req.cookies.accessbridge_session;
+  
+  if (!sessionId) {
+    return res.status(401).json({ success: false, message: 'No session found' });
+  }
+  
+  const session = sessions.get(sessionId);
+  if (!session || new Date(session.expiresAt) < new Date()) {
+    return res.status(401).json({ success: false, message: 'Session expired' });
+  }
+  
+  req.user = session;
+  next();
 };
 
 // Basic route
@@ -174,6 +259,37 @@ app.get('/api/admin/submissions', (req: Request, res: Response) => {
   }
 });
 
+// API endpoint to approve a user
+app.post('/api/admin/approve/:id', (req: Request, res: Response): any => {
+  try {
+    const { id } = req.params;
+    const submissions = readSubmissions();
+    
+    const userIndex = submissions.findIndex(sub => sub.id === id);
+    if (userIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    submissions[userIndex].status = 'approved';
+    writeSubmissions(submissions);
+    
+    res.json({
+      success: true,
+      message: 'User approved successfully',
+      user: submissions[userIndex]
+    });
+  } catch (error) {
+    console.error('Error approving user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // API endpoint to get courses (for approved users)
 app.get('/api/courses', (req: Request, res: Response) => {
   try {
@@ -183,11 +299,11 @@ app.get('/api/courses', (req: Request, res: Response) => {
       {
         id: '1',
         title: 'Google IT Support Professional Certificate',
-        description: 'Aprende los fundamentos de soporte técnico de IT. Incluye troubleshooting, redes, sistemas operativos, y seguridad.',
+        description: 'Aprende los fundamentos de soporte técnico de IT. Incluye troubleshooting, redes, sistemas operativos, y seguridad informática. Perfecto para iniciar en ciberseguridad.',
         provider: 'Google',
         duration: '6 meses',
         level: 'Beginner',
-        category: 'IT Support',
+        category: 'IT Support & Cybersecurity',
         url: 'https://www.coursera.org/professional-certificates/google-it-support',
         isBlocked: true
       },
@@ -205,22 +321,22 @@ app.get('/api/courses', (req: Request, res: Response) => {
       {
         id: '3',
         title: 'Google Data Analytics Professional Certificate',
-        description: 'Desarrolla habilidades en análisis de datos, visualización y toma de decisiones basadas en datos.',
+        description: 'Desarrolla habilidades en análisis de datos, visualización y toma de decisiones basadas en datos. Ideal para marketing digital y análisis de campañas.',
         provider: 'Google',
         duration: '6 meses',
         level: 'Beginner',
-        category: 'Data Analytics',
+        category: 'Data Analytics & Marketing',
         url: 'https://www.coursera.org/professional-certificates/google-data-analytics',
         isBlocked: true
       },
       {
         id: '4',
         title: 'Microsoft 365 Fundamentals (MS-900)',
-        description: 'Aprende sobre los servicios de Microsoft 365 y las opciones de licenciamiento disponibles.',
+        description: 'Aprende sobre los servicios de Microsoft 365, herramientas de productividad y colaboración en la nube.',
         provider: 'Microsoft',
         duration: '2 meses',
         level: 'Beginner',
-        category: 'Productivity',
+        category: 'Productivity Tools',
         url: 'https://learn.microsoft.com/en-us/certifications/microsoft-365-fundamentals/',
         isBlocked: true
       },
@@ -238,13 +354,218 @@ app.get('/api/courses', (req: Request, res: Response) => {
       {
         id: '6',
         title: 'Microsoft Power Platform Fundamentals (PL-900)',
+        description: 'Explora las capacidades de Microsoft Power Platform para automatización y desarrollo de aplicaciones sin código.',
+        provider: 'Microsoft',
+        duration: '3 meses',
+        level: 'Beginner',
+        category: 'Productivity & Automation',
+        url: 'https://learn.microsoft.com/en-us/certifications/power-platform-fundamentals/',
+        isBlocked: true
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: courses,
+      count: courses.length
+    });
+  } catch (error) {
+    console.error('Error fetching courses:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Authentication API endpoints
+
+// Generate magic link for approved user
+app.post('/api/auth/magic-link', (req: Request, res: Response): any => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+      return;
+    }
+
+    // Find approved user
+    const submissions = readSubmissions();
+    const user = submissions.find(sub => 
+      sub.email === email.toLowerCase() && sub.status === 'approved'
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found or not approved'
+      });
+      return;
+    }
+
+    const token = generateMagicLinkToken(user.id, user.email);
+    const magicLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/courses?token=${token}`;
+
+    res.json({
+      success: true,
+      magicLink
+    });
+  } catch (error) {
+    console.error('Error generating magic link:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Verify magic link and create session
+app.post('/api/auth/verify', (req: Request, res: Response): any => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required'
+      });
+    }
+
+    const payload = verifyMagicLinkToken(token);
+    if (!payload) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
+
+    const sessionId = createSession(payload.userId, payload.email);
+
+    // Set HTTP-only cookie
+    res.cookie('accessbridge_session', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
+    res.json({
+      success: true,
+      message: 'Session created successfully'
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get current user info
+app.get('/api/auth/me', authenticateSession, (req: Request, res: Response): any => {
+  res.json({
+    success: true,
+    user: req.user
+  });
+});
+
+// Logout
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  try {
+    const sessionId = req.cookies.accessbridge_session;
+    if (sessionId) {
+      sessions.delete(sessionId);
+    }
+
+    res.clearCookie('accessbridge_session');
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update courses endpoint to require authentication
+app.get('/api/courses', authenticateSession, (req: Request, res: Response): any => {
+  try {
+    // Return courses data for authenticated users
+    const courses = [
+      {
+        id: '1',
+        title: 'Google IT Support Professional Certificate',
+        description: 'Aprende los fundamentos de soporte técnico de IT. Incluye troubleshooting, redes, sistemas operativos, y seguridad.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'IT Support',
+        url: 'https://www.coursera.org/professional-certificates/google-it-support',
+        isBlocked: false // Now accessible for authenticated users
+      },
+      {
+        id: '2',
+        title: 'Microsoft Azure Fundamentals (AZ-900)',
+        description: 'Obtén una comprensión sólida de los conceptos básicos de la nube y los servicios de Microsoft Azure.',
+        provider: 'Microsoft',
+        duration: '3 meses',
+        level: 'Beginner',
+        category: 'Cloud Computing',
+        url: 'https://learn.microsoft.com/en-us/certifications/azure-fundamentals/',
+        isBlocked: false
+      },
+      {
+        id: '3',
+        title: 'Google Data Analytics Professional Certificate',
+        description: 'Desarrolla habilidades en análisis de datos, visualización y toma de decisiones basadas en datos.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'Data Analytics',
+        url: 'https://www.coursera.org/professional-certificates/google-data-analytics',
+        isBlocked: false
+      },
+      {
+        id: '4',
+        title: 'Microsoft 365 Fundamentals (MS-900)',
+        description: 'Aprende sobre los servicios de Microsoft 365 y las opciones de licenciamiento disponibles.',
+        provider: 'Microsoft',
+        duration: '2 meses',
+        level: 'Beginner',
+        category: 'Productivity',
+        url: 'https://learn.microsoft.com/en-us/certifications/microsoft-365-fundamentals/',
+        isBlocked: false
+      },
+      {
+        id: '5',
+        title: 'Google Project Management Professional Certificate',
+        description: 'Adquiere habilidades esenciales de gestión de proyectos y metodologías ágiles.',
+        provider: 'Google',
+        duration: '6 meses',
+        level: 'Beginner',
+        category: 'Project Management',
+        url: 'https://www.coursera.org/professional-certificates/google-project-management',
+        isBlocked: false
+      },
+      {
+        id: '6',
+        title: 'Microsoft Power Platform Fundamentals (PL-900)',
         description: 'Explora las capacidades de Microsoft Power Platform para automatización y desarrollo de aplicaciones.',
         provider: 'Microsoft',
         duration: '3 meses',
         level: 'Beginner',
         category: 'Low-Code Development',
         url: 'https://learn.microsoft.com/en-us/certifications/power-platform-fundamentals/',
-        isBlocked: true
+        isBlocked: false
       }
     ];
 
